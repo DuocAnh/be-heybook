@@ -77,9 +77,19 @@ const refreshToken = async (req, res, next) => {
   }
 }
 
+const getProfile = async (req, res, next) => {
+  try {
+    const userId = req.jwtDecoded.id
+    const userProfile = await userService.getProfile(userId)
+    res.status(200).json(userProfile)
+  } catch (error) {
+    next(error)
+  }
+}
+
 const update = async (req, res, next) => {
   try {
-    const userId = req.jwtDecoded._id
+    const userId = req.jwtDecoded.id
     const userAvatarFile = req.file
     // console.log('Controller > userAvatarFile: ', userAvatarFile)
     const updatedUser = await userService.update(userId, req.body, userAvatarFile)
@@ -89,11 +99,120 @@ const update = async (req, res, next) => {
   }
 }
 
+const googleLogin = async (req, res, next) => {
+  try {
+    const { googleToken } = req.body
+
+    if (!googleToken) {
+      throw new ApiError(400, 'Google token is required')
+    }
+
+    const result = await userService.googleLogin(googleToken)
+
+    // Set cookies như login thông thường
+    res.cookie('accessToken', result.accessToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+      maxAge: ms('14 days')
+    })
+    res.cookie('refreshToken', result.refreshToken, {
+      httpOnly: true,
+      secure: true,
+      sameSite: 'Strict',
+      maxAge: ms('14 days')
+    })
+
+    res.status(200).json(pickUser(result))
+  } catch (error) {
+    next(error)
+  }
+}
+
+// Admin Controllers
+const getAllUsers = async (req, res, next) => {
+  try {
+    const { page = 1, limit = 10, search = '' } = req.query
+    const result = await userService.getAllUsers(page, limit, search)
+    res.status(200).json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+const createUserByAdmin = async (req, res, next) => {
+  try {
+    const createdUser = await userService.createUserByAdmin(req.body)
+    res.status(201).json({
+      message: 'User created successfully',
+      user: createdUser
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+const updateUserByAdmin = async (req, res, next) => {
+  try {
+    const { userId } = req.params
+    const updatedUser = await userService.updateUserByAdmin(userId, req.body)
+    res.status(200).json({
+      message: 'User updated successfully',
+      user: updatedUser
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+const deleteUser = async (req, res, next) => {
+  try {
+    const { userId } = req.params
+    const result = await userService.deleteUser(userId)
+    res.status(200).json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
+const updateProfile = async (req, res, next) => {
+  try {
+    const userId = req.jwtDecoded.id
+    const updatedUser = await userService.updateProfile(userId, req.body)
+    res.status(200).json({
+      message: 'Profile updated successfully',
+      user: updatedUser
+    })
+  } catch (error) {
+    next(error)
+  }
+}
+
+const updatePassword = async (req, res, next) => {
+  try {
+    const userId = req.jwtDecoded.id
+    const result = await userService.updatePassword(userId, req.body)
+    res.status(200).json(result)
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const userController = {
   createNew,
   verifyAccount,
   login,
   logout,
   refreshToken,
-  update
+  update,
+  googleLogin,
+  // Admin functions
+  getAllUsers,
+  createUserByAdmin,
+  updateUserByAdmin,
+  deleteUser,
+  // New user profile functions
+  updateProfile,
+  updatePassword,
+  getProfile
 }

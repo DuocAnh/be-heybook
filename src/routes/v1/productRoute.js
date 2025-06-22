@@ -7,6 +7,7 @@ const Router = express.Router()
 
 Router.route('/categories').get(productController.getCategories)
 Router.route('/book-genres').get(productController.getBookGenres)
+Router.route('/search').get(productValidation.validateSearch, productController.searchAndFilterProducts)
 
 Router.route('/')
   .get(productController.getProducts)

@@ -17,5 +17,15 @@ export const slugify = (val) => {
 // Lấy một vài dữ liệu cụ thể trong User để tránh việc trả về các dữ liệu nhạy cảm như hash password
 export const pickUser = (user) => {
   if (!user) return {}
-  return pick(user, ['id', 'email', 'userName', 'avatar', 'role', 'isActive', 'createdAt', 'updatedAt'])
+  return pick(user, [
+    'id',
+    'email',
+    'userName',
+    'avatar',
+    'address',
+    'role',
+    'isActive',
+    'createdAt',
+    'updatedAt'
+  ])
 }

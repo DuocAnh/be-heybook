@@ -73,6 +73,27 @@ const getBookGenres = async (req, res, next) => {
   }
 }
 
+const searchAndFilterProducts = async (req, res, next) => {
+  try {
+    const filters = {
+      page: req.query.page,
+      itemsPerPage: req.query.itemsPerPage,
+      search: req.query.search,
+      type: req.query.type,
+      bookGenreId: req.query.bookGenreId,
+      language: req.query.language,
+      categoryId: req.query.categoryId,
+      minPrice: req.query.minPrice,
+      maxPrice: req.query.maxPrice
+    }
+
+    const products = await productService.searchAndFilterProducts(filters)
+    res.status(200).json(products)
+  } catch (error) {
+    next(error)
+  }
+}
+
 export const productController = {
   create,
   getProducts,
@@ -80,5 +101,6 @@ export const productController = {
   update,
   deleteById,
   getCategories,
-  getBookGenres
+  getBookGenres,
+  searchAndFilterProducts
 }

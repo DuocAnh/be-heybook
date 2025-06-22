@@ -1,6 +1,6 @@
 import { Sequelize, Op } from 'sequelize'
 import sequelize from '~/config/mySQL'
-import { BookDetail, StationeryDetail, Product, ProductImage, BookGenre, Category } from '~/models'
+import { BookDetail, StationeryDetail, Product, ProductImage, BookGenre, Category, Review } from '~/models'
 import { UploadImageProvider } from '~/providers/UploadImageProvider'
 import ApiError from '~/utils/ApiError'
 import { DEFAULT_PAGE, DEFAULT_ITEMS_PER_PAGE } from '~/utils/constants'
@@ -81,7 +81,24 @@ const getProductById = async (productId) => {
   try {
     const product = await Product.findOne({
       where: { id: productId },
-
+      attributes: [
+        'id',
+        'name',
+        'price',
+        'discount',
+        'stock',
+        'description',
+        'coverImageUrl',
+        'dimension',
+        'type',
+        'categoryId',
+        'createdAt',
+        'updatedAt',
+        // Tính rating trung bình từ reviews
+        [sequelize.fn('COALESCE', sequelize.fn('AVG', sequelize.col('reviews.rating')), 0), 'avgRating'],
+        // Đếm số lượng reviews
+        [sequelize.fn('COUNT', sequelize.col('reviews.id')), 'totalReviews']
+      ],
       include: [
         {
           model: BookDetail,
@@ -115,8 +132,16 @@ const getProductById = async (productId) => {
           model: ProductImage,
           as: 'productImages',
           required: false
+        },
+        {
+          model: Review,
+          as: 'reviews',
+          required: false,
+          attributes: []
         }
-      ]
+      ],
+      group: ['Product.id'],
+      raw: false
     })
     return product
   } catch (error) {
@@ -198,7 +223,6 @@ const create = async (reqBody, productFile) => {
 
 const update = async (productId, reqBody, productFile) => {
   try {
-    console.log(reqBody)
     // Lấy product cũ
     const oldProduct = await Product.findByPk(productId)
     if (oldProduct === reqBody) throw new ApiError(404, 'Không tìm thấy sản phẩm!')
@@ -425,6 +449,151 @@ const getBookGenres = async () => {
   }
 }
 
+const searchAndFilterProducts = async (filters) => {
+  try {
+    const {
+      page = DEFAULT_PAGE,
+      itemsPerPage = DEFAULT_ITEMS_PER_PAGE,
+      search,
+      type,
+      bookGenreId,
+      language,
+      categoryId,
+      minPrice,
+      maxPrice
+    } = filters
+
+    const offset = (page - 1) * itemsPerPage
+
+    // Build where clause cho Product
+    const whereClause = {}
+
+    // Search theo tên sản phẩm
+    if (search) {
+      whereClause.name = { [Op.like]: `%${search}%` }
+    }
+
+    // Filter theo type (BOOK hoặc STATIONERY)
+    if (type) {
+      whereClause.type = type
+    }
+
+    // Filter theo categoryId (cho STATIONERY)
+    if (categoryId) {
+      whereClause.categoryId = categoryId
+    }
+
+    // Filter theo giá - tính theo giá sau discount
+    const hasMinPrice = minPrice !== undefined && minPrice !== null && minPrice !== '' && !isNaN(minPrice)
+    const hasMaxPrice = maxPrice !== undefined && maxPrice !== null && maxPrice !== '' && !isNaN(maxPrice)
+
+    if (hasMinPrice || hasMaxPrice) {
+      // Tính giá thực tế sau discount: price * (100 - discount) / 100
+      const finalPriceFormula = 'price * (100 - discount) / 100'
+
+      if (hasMinPrice && hasMaxPrice) {
+        whereClause[Op.and] = [
+          Sequelize.literal(`${finalPriceFormula} >= ${parseFloat(minPrice)}`),
+          Sequelize.literal(`${finalPriceFormula} <= ${parseFloat(maxPrice)}`)
+        ]
+      } else if (hasMinPrice) {
+        whereClause[Op.and] = [Sequelize.literal(`${finalPriceFormula} >= ${parseFloat(minPrice)}`)]
+      } else if (hasMaxPrice) {
+        whereClause[Op.and] = [Sequelize.literal(`${finalPriceFormula} <= ${parseFloat(maxPrice)}`)]
+      }
+    }
+
+    // Build include array
+    const includeArray = [
+      {
+        model: Category,
+        as: 'category',
+        required: false,
+        attributes: ['id', 'name']
+      },
+      {
+        model: ProductImage,
+        as: 'productImages',
+        required: false
+      }
+    ]
+
+    // Include BookDetail với điều kiện filter
+    const bookDetailInclude = {
+      model: BookDetail,
+      as: 'bookDetail',
+      required: false,
+      attributes: [
+        'bookGenreId',
+        'author',
+        'translator',
+        'language',
+        'publisher',
+        'publishYear',
+        'pageCount'
+      ],
+      include: [
+        {
+          model: BookGenre,
+          as: 'bookGenre',
+          required: false,
+          attributes: ['id', 'name']
+        }
+      ]
+    }
+
+    // Nếu có filter theo bookGenreId hoặc language cho BOOK
+    if (bookGenreId || language) {
+      const bookDetailWhere = {}
+      if (bookGenreId) {
+        bookDetailWhere.bookGenreId = bookGenreId
+      }
+      if (language) {
+        bookDetailWhere.language = { [Op.like]: `%${language}%` }
+      }
+      bookDetailInclude.where = bookDetailWhere
+      bookDetailInclude.required = true // Bắt buộc có BookDetail khi filter
+    }
+
+    includeArray.push(bookDetailInclude)
+
+    // Include StationeryDetail
+    includeArray.push({
+      model: StationeryDetail,
+      as: 'stationeryDetail',
+      required: false,
+      attributes: ['brand', 'placeProduction', 'color', 'material']
+    })
+
+    const { rows: data, count } = await Product.findAndCountAll({
+      where: whereClause,
+      limit: parseInt(itemsPerPage, 10),
+      offset: parseInt(offset, 10),
+      order: [['updatedAt', 'DESC']],
+      attributes: [
+        'id',
+        'name',
+        'price',
+        'discount',
+        'stock',
+        'description',
+        'coverImageUrl',
+        'dimension',
+        'type',
+        'categoryId',
+        'createdAt',
+        'updatedAt'
+      ],
+      include: includeArray,
+      distinct: true // Tránh duplicate khi có join
+    })
+
+    return { data, count }
+  } catch (error) {
+    throw error
+  }
+}
+
 export const productService = {
   create,
   getProducts,
@@ -432,5 +601,6 @@ export const productService = {
   update,
   deleteById,
   getCategories,
-  getBookGenres
+  getBookGenres,
+  searchAndFilterProducts
 }

@@ -27,6 +27,10 @@ User.init(
       allowNull: true,
       type: DataTypes.STRING
     },
+    address: {
+      allowNull: true,
+      type: DataTypes.STRING(500)
+    },
     isActive: {
       allowNull: false,
       type: DataTypes.BOOLEAN

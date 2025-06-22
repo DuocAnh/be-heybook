@@ -62,6 +62,45 @@ const validate = async (req, res, next) => {
   }
 }
 
+const validateSearch = async (req, res, next) => {
+  try {
+    const searchSchema = Joi.object({
+      page: Joi.number().integer().min(1).optional(),
+      itemsPerPage: Joi.number().integer().min(1).max(100).optional(),
+      search: Joi.string().max(100).trim().optional(),
+      type: Joi.string().valid('BOOK', 'STATIONERY').optional(),
+      bookGenreId: Joi.number().integer().positive().optional(),
+      language: Joi.string().max(100).trim().optional(),
+      categoryId: Joi.number().integer().positive().optional(),
+      minPrice: Joi.number().min(0).optional(),
+      maxPrice: Joi.number().positive().optional()
+    })
+      .custom((value, helpers) => {
+        // Validate logic: nếu có bookGenreId hoặc language thì type phải là BOOK
+        if ((value.bookGenreId || value.language) && value.type !== 'BOOK') {
+          return helpers.error('custom.bookFilter')
+        }
+
+        // Validate minPrice <= maxPrice
+        if (value.minPrice && value.maxPrice && value.minPrice > value.maxPrice) {
+          return helpers.error('custom.priceRange')
+        }
+
+        return value
+      }, 'Search validation')
+      .messages({
+        'custom.bookFilter': 'bookGenreId và language chỉ có thể sử dụng khi type=BOOK',
+        'custom.priceRange': 'minPrice phải nhỏ hơn hoặc bằng maxPrice'
+      })
+
+    await searchSchema.validateAsync(req.query, { abortEarly: false })
+    next()
+  } catch (error) {
+    next(new ApiError(422, new Error(error).message))
+  }
+}
+
 export const productValidation = {
-  validate
+  validate,
+  validateSearch
 }
