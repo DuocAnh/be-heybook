@@ -93,11 +93,11 @@ const getProductById = async (productId) => {
         'type',
         'categoryId',
         'createdAt',
-        'updatedAt',
+        'updatedAt'
         // Tính rating trung bình từ reviews
-        [sequelize.fn('COALESCE', sequelize.fn('AVG', sequelize.col('reviews.rating')), 0), 'avgRating'],
+        // [sequelize.fn('COALESCE', sequelize.fn('AVG', sequelize.col('reviews.rating')), 0), 'avgRating'],
         // Đếm số lượng reviews
-        [sequelize.fn('COUNT', sequelize.col('reviews.id')), 'totalReviews']
+        // [sequelize.fn('COUNT', sequelize.col('reviews.id')), 'totalReviews']
       ],
       include: [
         {
@@ -140,7 +140,7 @@ const getProductById = async (productId) => {
           attributes: []
         }
       ],
-      group: ['Product.id'],
+      // group: ['Product.id'],
       raw: false
     })
     return product

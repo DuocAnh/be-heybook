@@ -57,6 +57,8 @@ class VNPayProvider {
     vnp_Params['vnp_CreateDate'] = createDate
     vnp_Params['vnp_ExpireDate'] = expiredDate
 
+    console.log(vnp_Params)
+
     vnp_Params = sortObject(vnp_Params)
 
     const signData = querystring.stringify(vnp_Params, { encode: false })
