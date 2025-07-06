@@ -84,8 +84,7 @@ const searchAndFilterProducts = async (req, res, next) => {
       language: req.query.language,
       categoryId: req.query.categoryId,
       minPrice: req.query.minPrice,
-      maxPrice: req.query.maxPrice,
-      isTrend: req.query.isTrend
+      maxPrice: req.query.maxPrice
     }
 
     const products = await productService.searchAndFilterProducts(filters)
@@ -102,7 +101,6 @@ const getProductTrend = async (req, res, next) => {
     next(error)
   }
 }
-
 
 export const productController = {
   create,
