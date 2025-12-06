@@ -1,6 +1,7 @@
-import { Product, Review, User } from '~/models'
-import { ApiError } from '~/utils/ApiError'
+import { Order, OrderItem, Product, Review, User } from '~/models'
+import ApiError from '~/utils/ApiError'
 import sequelize from '~/config/mySQL'
+import { Op } from 'sequelize'
 
 const DEFAULT_PAGE = 1
 const DEFAULT_ITEMS_PER_PAGE = 10
@@ -8,12 +9,36 @@ const DEFAULT_ITEMS_PER_PAGE = 10
 /**
  * Tạo đánh giá mới
  */
+/**
+ * Tạo đánh giá mới (chỉ cho phép nếu user đã mua product)
+ */
 const createReview = async (userId, productId, rating, comment) => {
   try {
-    // Kiểm tra sản phẩm có tồn tại không
+    // 1) Kiểm tra sản phẩm có tồn tại không
     const product = await Product.findByPk(productId)
     if (!product) {
       throw new ApiError(404, 'Sản phẩm không tồn tại!')
+    }
+
+    // --------------------------
+    // Cách A: kiểm tra bằng Order + OrderItem (nếu Order có quan hệ 'items' -> OrderItem)
+    // --------------------------
+    const purchasedOrder = await Order.findOne({
+      where: {
+        userId,
+        status: { [Op.in]: ['DELIVERED'] }
+      },
+      include: [
+        {
+          model: OrderItem,
+          as: 'orderItems',
+          where: { productId }
+        }
+      ]
+    })
+
+    if (!purchasedOrder) {
+      throw new ApiError(403, 'Bạn phải mua sản phẩm này trước khi đánh giá.')
     }
 
     // Kiểm tra user đã đánh giá sản phẩm này chưa

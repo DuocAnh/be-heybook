@@ -1,6 +1,16 @@
 import { Sequelize, Op } from 'sequelize'
 import sequelize from '~/config/mySQL'
-import { BookDetail, StationeryDetail, Product, ProductImage, BookGenre, Category, Review } from '~/models'
+import {
+  BookDetail,
+  StationeryDetail,
+  Product,
+  ProductImage,
+  BookGenre,
+  Category,
+  Review,
+  OrderItem,
+  Order
+} from '~/models'
 import { UploadImageProvider } from '~/providers/UploadImageProvider'
 import ApiError from '~/utils/ApiError'
 import { DEFAULT_PAGE, DEFAULT_ITEMS_PER_PAGE } from '~/utils/constants'
@@ -79,8 +89,8 @@ const getProducts = async (page, itemsPerPage, queryFilter) => {
 
 const getProductById = async (productId) => {
   try {
-    const product = await Product.findOne({
-      where: { id: productId },
+    // 1) Lấy product + các related details (không aggregate)
+    const product = await Product.findByPk(productId, {
       attributes: [
         'id',
         'name',
@@ -94,10 +104,6 @@ const getProductById = async (productId) => {
         'categoryId',
         'createdAt',
         'updatedAt'
-        // Tính rating trung bình từ reviews
-        // [sequelize.fn('COALESCE', sequelize.fn('AVG', sequelize.col('reviews.rating')), 0), 'avgRating'],
-        // Đếm số lượng reviews
-        // [sequelize.fn('COUNT', sequelize.col('reviews.id')), 'totalReviews']
       ],
       include: [
         {
@@ -105,6 +111,7 @@ const getProductById = async (productId) => {
           as: 'bookDetail',
           required: false,
           attributes: [
+            'product_id',
             'bookGenreId',
             'author',
             'translator',
@@ -113,14 +120,15 @@ const getProductById = async (productId) => {
             'publishYear',
             'pageCount'
           ],
-          on: Sequelize.literal('Product.id = bookDetail.product_id AND Product.type = "BOOK"')
+          // Nếu bạn muốn ràng buộc theo type, giữ literal; nếu không, có thể bỏ on
+          on: sequelize.literal('Product.id = bookDetail.product_id AND Product.type = "BOOK"')
         },
         {
           model: StationeryDetail,
           as: 'stationeryDetail',
           required: false,
-          attributes: ['brand', 'placeProduction', 'color', 'material'],
-          on: Sequelize.literal('Product.id = stationeryDetail.product_id AND Product.type = "STATIONERY"')
+          attributes: ['product_id', 'brand', 'placeProduction', 'color', 'material'],
+          on: sequelize.literal('Product.id = stationeryDetail.product_id AND Product.type = "STATIONERY"')
         },
         {
           model: Category,
@@ -131,20 +139,76 @@ const getProductById = async (productId) => {
         {
           model: ProductImage,
           as: 'productImages',
-          required: false
-        },
-        {
-          model: Review,
-          as: 'reviews',
           required: false,
-          attributes: []
+          attributes: ['id', 'imageUrl'] // sửa theo schema của bạn nếu cần
+        }
+      ]
+    })
+
+    if (!product) return null
+
+    // 2) Tính aggregates từ Review riêng
+    const stats = await Review.findOne({
+      where: {
+        [Op.or]: [
+          { productId: productId }, // camelCase FK (nếu model mapping)
+          { product_id: productId } // snake_case FK (nếu DB dùng snake_case)
+        ]
+      },
+      attributes: [
+        [sequelize.fn('COALESCE', sequelize.fn('AVG', sequelize.col('rating')), 0), 'avgRating'],
+        [sequelize.fn('COUNT', sequelize.col('id')), 'totalReviews']
+      ],
+      raw: true
+    })
+
+    const avgRating = stats && stats.avgRating !== null ? parseFloat(stats.avgRating) : 0
+    const totalReviews = stats && stats.totalReviews !== null ? parseInt(stats.totalReviews, 10) : 0
+
+    // 3) Tính tổng số lượng đã bán (không bao gồm order có status = 'RETURNED')
+    // Lưu ý:
+    // - Mình giả sử model của bảng order_items là OrderItem
+    // - OrderItem.hasOne/.belongsTo(Order) và alias trong association là 'order' (nếu khác hãy đổi `as`)
+    // - Bảng order_items dùng cột product_id và quantity
+    const sales = await OrderItem.findOne({
+      where: {
+        [Op.or]: [
+          { product_id: productId }, // snake_case column
+          { productId: productId } // camelCase mapping nếu có
+        ]
+      },
+      include: [
+        {
+          model: Order,
+          as: 'order', // đổi theo alias association của bạn nếu khác
+          required: true, // chỉ tính các order có bản ghi order liên quan
+          attributes: [],
+          where: {
+            // loại bỏ các order có status = 'RETURNED'
+            status: { [Op.notIn]: ['RETURNED'] }
+          }
         }
       ],
-      // group: ['Product.id'],
-      raw: false
+      attributes: [
+        // COALESCE(SUM(quantity), 0) as totalSold
+        [sequelize.fn('COALESCE', sequelize.fn('SUM', sequelize.col('quantity')), 0), 'totalSold']
+      ],
+      raw: true
     })
-    return product
+
+    const totalSold = sales && sales.totalSold !== null ? parseInt(sales.totalSold, 10) : 0
+
+    // 4) Ghép kết quả và trả về (chuyển product sang plain object)
+    const productJson = product.toJSON ? product.toJSON() : product
+
+    return {
+      ...productJson,
+      avgRating,
+      totalReviews,
+      totalSold
+    }
   } catch (error) {
+    // tuỳ project bạn có thể log error ở đây
     throw error
   }
 }

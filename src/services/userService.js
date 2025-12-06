@@ -14,7 +14,7 @@ const register = async (reqBody) => {
       where: { email: reqBody.email }
     })
     if (existUser) {
-      throw new ApiError(409, 'Email already exists!')
+      throw new ApiError(409, 'Email đã tồn tại!')
     }
 
     const nameFromEmail = reqBody.email.split('@')[0]
@@ -22,7 +22,7 @@ const register = async (reqBody) => {
       email: reqBody.email,
       password: bcryptjs.hashSync(reqBody.password, 8), // Tham số thứ 2 là độ phức tạp, giá trị càng cao thì băm càng lâu
       userName: nameFromEmail,
-      verifyToken: uuidv4(),
+      // verifyToken: uuidv4(),
       isActive: false,
       role: 'CLIENT'
     }
@@ -30,7 +30,7 @@ const register = async (reqBody) => {
 
     return createdUser.toJSON()
   } catch (error) {
-    throw new Error(error.message)
+    throw error
   }
 }
 
@@ -55,8 +55,8 @@ const login = async (reqBody) => {
     const accessToken = await JwtProvider.generateToken(
       userInfo,
       env.ACCESS_TOKEN_SECRET_SIGNATURE,
-      15
-      // env.ACCESS_TOKEN_LIFE
+      // 15
+      env.ACCESS_TOKEN_LIFE
     )
 
     const refreshToken = await JwtProvider.generateToken(

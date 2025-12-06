@@ -5,9 +5,8 @@ module.exports = {
   async up(queryInterface, Sequelize) {
     await queryInterface.createTable('users', {
       id: {
-        allowNull: false,
-        autoIncrement: true,
         primaryKey: true,
+        autoIncrement: true,
         type: Sequelize.BIGINT
       },
       email: {
@@ -32,10 +31,10 @@ module.exports = {
         type: Sequelize.BOOLEAN,
         defaultValue: true
       },
-      verify_token: {
-        allowNull: false,
-        type: Sequelize.STRING
-      },
+      // verify_token: {
+      //   allowNull: false,
+      //   type: Sequelize.STRING
+      // },
       role: {
         allowNull: false,
         type: Sequelize.STRING(50),

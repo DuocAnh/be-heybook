@@ -35,10 +35,6 @@ User.init(
       allowNull: false,
       type: DataTypes.BOOLEAN
     },
-    verifyToken: {
-      allowNull: false,
-      type: DataTypes.STRING
-    },
     role: {
       allowNull: false,
       type: DataTypes.STRING
