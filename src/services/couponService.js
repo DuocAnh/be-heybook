@@ -229,8 +229,8 @@ const applyCoupon = async (code, orderAmount) => {
 
     return {
       coupon,
-      discountAmount: Math.round(discountAmount),
-      finalAmount: orderAmount - Math.round(discountAmount)
+      discountAmount: discountAmount,
+      finalAmount: orderAmount - discountAmount
     }
   } catch (error) {
     throw error

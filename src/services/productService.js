@@ -27,7 +27,10 @@ const getProducts = async (page, itemsPerPage, queryFilter) => {
       where: whereClause,
       limit: parseInt(itemsPerPage, 10),
       offset: parseInt(offset, 10),
-      order: [['updatedAt', 'DESC']],
+      // order: [['updatedAt', 'DESC']],
+
+      distinct: true,
+      col: 'id',
 
       attributes: [
         'id',

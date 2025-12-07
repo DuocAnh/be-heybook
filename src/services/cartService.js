@@ -61,8 +61,11 @@ const addToCart = async (userId, productId, quantity = 1) => {
     }
 
     // Kiểm tra stock
+    if (product.stock === 0) {
+      throw new ApiError(400, 'Sản phẩm đã hết hàng')
+    }
     if (product.stock < quantity) {
-      throw new ApiError(400, `Chỉ còn ${product.stock} sản phẩm trong kho!`)
+      throw new ApiError(400, `Cửa hàng chỉ còn ${product.stock} sản phẩm!`)
     }
 
     // Lấy hoặc tạo cart
@@ -82,10 +85,7 @@ const addToCart = async (userId, productId, quantity = 1) => {
 
       // Kiểm tra stock với quantity mới
       if (product.stock < newQuantity) {
-        throw new ApiError(
-          400,
-          `Chỉ có thể thêm tối đa ${product.stock - existingCartItem.quantity} sản phẩm nữa!`
-        )
+        throw new ApiError(400, `Cửa hàng chỉ còn ${product.stock} sản phẩm!`)
       }
 
       const totalPrice = (newQuantity * product.price * (100 - product.discount)) / 100
@@ -243,7 +243,6 @@ const applyCouponToCart = async (userId, couponCode) => {
 
     // Áp dụng coupon
     const couponResult = await couponService.applyCoupon(couponCode, cart.totalAmount)
-
     // Cập nhật cart với coupon
     await cart.update({
       couponId: couponResult.coupon.id,
