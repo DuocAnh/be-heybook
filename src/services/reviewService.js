@@ -14,14 +14,14 @@ const DEFAULT_ITEMS_PER_PAGE = 10
  */
 const createReview = async (userId, productId, rating, comment) => {
   try {
-    // 1) Kiểm tra sản phẩm có tồn tại không
+    // Kiểm tra sản phẩm có tồn tại không
     const product = await Product.findByPk(productId)
     if (!product) {
       throw new ApiError(404, 'Sản phẩm không tồn tại!')
     }
 
     // --------------------------
-    // Cách A: kiểm tra bằng Order + OrderItem (nếu Order có quan hệ 'items' -> OrderItem)
+    // kiểm tra bằng Order + OrderItem xem đã mua hàng chưa
     // --------------------------
     const purchasedOrder = await Order.findOne({
       where: {

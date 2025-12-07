@@ -96,7 +96,7 @@ const isAdminOrUser = async (req, res, next) => {
     }
 
     // Kiểm tra role của user - cho phép ADMIN hoặc USER
-    if (req.user.role !== 'ADMIN' && req.user.role !== 'USER') {
+    if (req.user.role !== 'ADMIN' && req.user.role !== 'STAFF') {
       throw new ApiError(403, 'Forbidden! Admin or User access required.')
     }
 

@@ -273,7 +273,7 @@ const createUserByAdmin = async (reqBody) => {
       userName: reqBody.userName || reqBody.email.split('@')[0],
       avatar: reqBody.avatar || null,
       address: reqBody.address || null,
-      verifyToken: uuidv4(),
+      // verifyToken: uuidv4(),
       isActive: reqBody.isActive !== undefined ? reqBody.isActive : true,
       role: reqBody.role || 'CLIENT'
     }
@@ -313,9 +313,9 @@ const updateUserByAdmin = async (userId, reqBody) => {
     if (reqBody.address !== undefined) updateData.address = reqBody.address
     if (reqBody.isActive !== undefined) updateData.isActive = reqBody.isActive
     if (reqBody.role) {
-      const validRoles = ['CLIENT', 'USER', 'ADMIN']
+      const validRoles = ['CLIENT', 'STAFF', 'ADMIN']
       if (!validRoles.includes(reqBody.role)) {
-        throw new ApiError(400, 'Invalid role! Valid roles are: CLIENT, USER, ADMIN')
+        throw new ApiError(400, 'Invalid role! Valid roles are: CLIENT, STAFF, ADMIN')
       }
       updateData.role = reqBody.role
     }
@@ -328,7 +328,7 @@ const updateUserByAdmin = async (userId, reqBody) => {
     })
 
     const updatedUser = await User.findByPk(userId, {
-      attributes: { exclude: ['password', 'verifyToken'] }
+      attributes: { exclude: ['password'] }
     })
 
     return updatedUser
