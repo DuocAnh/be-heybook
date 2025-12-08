@@ -13,7 +13,7 @@ const validate = async (req, res, next) => {
     dimension: Joi.string().allow('').max(50).trim(),
     type: Joi.string().valid('BOOK', 'STATIONERY').required(),
     productImages: Joi.array()
-      .items(Joi.object({ imageUrl: Joi.string().uri().required() }))
+      .items(Joi.object({ imageUrl: Joi.string().required() }))
       .min(0)
       .max(10)
       .optional()
