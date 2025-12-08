@@ -23,7 +23,7 @@
     "db:seed": "npx sequelize-cli db:seed:all",
     "db:seed:undo": "npx sequelize-cli db:seed:undo:all",
     "db:seed:custom": "node run-seeders.js",
-    "db:reset": "npm run db:drop && npm run db:create && npm run db:migrate && npm run db:seed:custom",
+    "db:reset": "npm run db:drop && npm run db:create && npm run db:migrate",
     "db:reset:soft": "npm run db:migrate:undo:all && npm run db:migrate && npm run db:seed:custom"
   },
   "dependencies": {

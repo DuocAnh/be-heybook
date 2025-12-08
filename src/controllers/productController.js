@@ -3,9 +3,10 @@ import { productService } from '~/services/productService'
 const create = async (req, res, next) => {
   try {
     console.log(req.body)
-    console.log(req.file)
-    const productFile = req.file
-    const createProduct = await productService.create(req.body, productFile)
+    console.log(req.files)
+    const coverImageFile = req.files?.coverImageUrl?.[0] || null
+    const productImageFiles = req.files?.productImages || []
+    const createProduct = await productService.create(req.body, coverImageFile, productImageFiles)
     res.status(201).json(createProduct)
   } catch (error) {
     next(error)
@@ -37,8 +38,9 @@ const update = async (req, res, next) => {
   try {
     console.log(req.body)
     const productId = req.params.id
-    const productFile = req.file
-    const updatedProduct = await productService.update(productId, req.body, productFile)
+    const coverImageFile = req.files?.coverImageUrl?.[0] || null
+    const productImageFiles = req.files?.productImages || []
+    const updatedProduct = await productService.update(productId, req.body, coverImageFile, productImageFiles)
     res.status(201).json(updatedProduct)
   } catch (error) {
     next(error)

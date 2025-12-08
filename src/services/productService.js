@@ -216,7 +216,7 @@ const getProductById = async (productId) => {
   }
 }
 
-const create = async (reqBody, productFile) => {
+const create = async (reqBody, coverImageFile, productImageFiles) => {
   try {
     const existProduct = await Product.findOne({
       attributes: ['name'],
@@ -225,11 +225,29 @@ const create = async (reqBody, productFile) => {
     })
     if (existProduct) throw new ApiError(409, 'Sản phẩm đã tồn tại!')
 
+    // Upload cover image (required)
+    if (!coverImageFile) {
+      throw new ApiError(422, 'Cover image is required')
+    }
     const uploadResult = await UploadImageProvider.uploadImage(
-      productFile.buffer,
+      coverImageFile.buffer,
       'coverImages',
-      productFile.originalname
+      coverImageFile.originalname
     )
+    const coverImageUrl = uploadResult.fileUrl
+
+    // Upload product images
+    const uploadedProductImages = []
+    if (productImageFiles && productImageFiles.length > 0) {
+      for (const file of productImageFiles) {
+        const uploadResult = await UploadImageProvider.uploadImage(
+          file.buffer,
+          'productImages',
+          file.originalname
+        )
+        uploadedProductImages.push({ imageUrl: uploadResult.fileUrl })
+      }
+    }
 
     const product = await sequelize.transaction(async (t) => {
       // Tạo mảng include động
@@ -243,11 +261,13 @@ const create = async (reqBody, productFile) => {
         discount: reqBody.discount,
         stock: reqBody.stock,
         description: reqBody.description,
-        coverImageUrl: uploadResult.fileUrl,
+        coverImageUrl: coverImageUrl,
         dimension: reqBody.dimension,
         type: reqBody.type,
-        // chung productImages
-        productImages: (reqBody.productImages || []).map((i) => ({ imageUrl: i.imageUrl }))
+        // Use uploaded product images or fallback to reqBody.productImages (if provided as URLs)
+        productImages: uploadedProductImages.length > 0 
+          ? uploadedProductImages 
+          : (reqBody.productImages || []).map((i) => ({ imageUrl: i.imageUrl }))
       }
 
       // Nếu là sách thì đóng gói bookDetail và include model
@@ -288,24 +308,37 @@ const create = async (reqBody, productFile) => {
   }
 }
 
-const update = async (productId, reqBody, productFile) => {
+const update = async (productId, reqBody, coverImageFile, productImageFiles) => {
   try {
     // Lấy product cũ
     const oldProduct = await Product.findByPk(productId)
     if (oldProduct === reqBody) throw new ApiError(404, 'Không tìm thấy sản phẩm!')
     if (!oldProduct) throw new ApiError(404, 'Không tìm thấy sản phẩm!')
 
-    // Xử lý coverImageUrl
+    // Upload cover image
     let coverImageUrl
-    if (productFile) {
+    if (coverImageFile) {
       const uploadResult = await UploadImageProvider.uploadImage(
-        productFile.buffer,
+        coverImageFile.buffer,
         'coverImages',
-        productFile.originalname
+        coverImageFile.originalname
       )
       coverImageUrl = uploadResult.fileUrl
     } else {
       coverImageUrl = oldProduct.coverImageUrl
+    }
+
+    // Upload product images
+    const uploadedProductImages = []
+    if (productImageFiles && productImageFiles.length > 0) {
+      for (const file of productImageFiles) {
+        const uploadResult = await UploadImageProvider.uploadImage(
+          file.buffer,
+          'productImages',
+          file.originalname
+        )
+        uploadedProductImages.push({ imageUrl: uploadResult.fileUrl })
+      }
     }
 
     // Nếu type không đổi, chỉ update trong cùng model
@@ -362,9 +395,37 @@ const update = async (productId, reqBody, productFile) => {
           )
         }
 
-        // 3. Trả về đối tượng đầy đủ với include
+        // 3. Xử lý product images
+        // Merge new uploaded files with existing URLs from reqBody
+        const allProductImages = [...uploadedProductImages]
+        if (reqBody.productImages && Array.isArray(reqBody.productImages)) {
+          reqBody.productImages.forEach((img) => {
+            const imageUrl = typeof img === 'string' ? img : img.imageUrl
+            if (imageUrl) {
+              allProductImages.push({ imageUrl })
+            }
+          })
+        }
+
+        if (allProductImages.length > 0 || uploadedProductImages.length > 0 || (reqBody.productImages && Array.isArray(reqBody.productImages))) {
+          // Xóa product images cũ
+          await ProductImage.destroy({
+            where: { productId },
+            transaction: t
+          })
+          // Tạo product images mới (merged from files and URLs)
+          if (allProductImages.length > 0) {
+            await ProductImage.bulkCreate(
+              allProductImages.map((img) => ({ ...img, productId })),
+              { transaction: t }
+            )
+          }
+        }
+
+        // 4. Trả về đối tượng đầy đủ với include
         return await Product.findByPk(productId, {
           include: [
+            { model: ProductImage, as: 'productImages' },
             { model: BookDetail, as: 'bookDetail' },
             { model: StationeryDetail, as: 'stationeryDetail' }
           ],
@@ -426,7 +487,34 @@ const update = async (productId, reqBody, productFile) => {
           )
         }
 
-        // 4. Trả về object mới với include
+        // 4. Xử lý product images
+        // Merge new uploaded files with existing URLs from reqBody
+        const allProductImagesTypeChange = [...uploadedProductImages]
+        if (reqBody.productImages && Array.isArray(reqBody.productImages)) {
+          reqBody.productImages.forEach((img) => {
+            const imageUrl = typeof img === 'string' ? img : img.imageUrl
+            if (imageUrl) {
+              allProductImagesTypeChange.push({ imageUrl })
+            }
+          })
+        }
+
+        if (allProductImagesTypeChange.length > 0 || uploadedProductImages.length > 0 || (reqBody.productImages && Array.isArray(reqBody.productImages))) {
+          // Xóa product images cũ
+          await ProductImage.destroy({
+            where: { productId },
+            transaction: t
+          })
+          // Tạo product images mới (merged from files and URLs)
+          if (allProductImagesTypeChange.length > 0) {
+            await ProductImage.bulkCreate(
+              allProductImagesTypeChange.map((img) => ({ ...img, productId })),
+              { transaction: t }
+            )
+          }
+        }
+
+        // 5. Trả về object mới với include
         return Product.findByPk(productId, {
           include: [
             { model: ProductImage, as: 'productImages' },

@@ -12,7 +12,10 @@ Router.route('/search').get(productValidation.validateSearch, productController.
 Router.route('/')
   .get(productController.getProducts)
   .post(
-    multerUploadMiddleware.upload.single('coverImageUrl'),
+    multerUploadMiddleware.upload.fields([
+      { name: 'coverImageUrl', maxCount: 1 },
+      { name: 'productImages', maxCount: 10 }
+    ]),
     productValidation.validate,
     productController.create
   )
@@ -21,7 +24,10 @@ Router.route('/trend-products').get(productController.getProductTrend)
 Router.route('/:id')
   .get(productController.getProductById)
   .put(
-    multerUploadMiddleware.upload.single('coverImageUrl'),
+    multerUploadMiddleware.upload.fields([
+      { name: 'coverImageUrl', maxCount: 1 },
+      { name: 'productImages', maxCount: 10 }
+    ]),
     productValidation.validate,
     productController.update
   )

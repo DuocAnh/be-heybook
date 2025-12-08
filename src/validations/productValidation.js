@@ -11,13 +11,12 @@ const validate = async (req, res, next) => {
     description: Joi.string().required().min(5).max(10000).trim(),
     // coverImageUrl: Joi.string().uri().required(),
     dimension: Joi.string().allow('').max(50).trim(),
-    type: Joi.string().valid('BOOK', 'STATIONERY').required()
-
-    // productImages: Joi.array()
-    //   .items(Joi.object({ imageUrl: Joi.string().uri().required() }))
-    //   .min(0)
-    //   .max(10)
-    //   .unique('imageUrl')
+    type: Joi.string().valid('BOOK', 'STATIONERY').required(),
+    productImages: Joi.array()
+      .items(Joi.object({ imageUrl: Joi.string().uri().required() }))
+      .min(0)
+      .max(10)
+      .optional()
   }
   const bookFields = {
     bookGenreId: Joi.number().required().integer(),
